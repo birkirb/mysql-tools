@@ -97,19 +97,20 @@ class MysqlSchemaAnalyzer
         index_summary_lines.push("".ljust(8) + "#{index['index'] == 'PRIMARY' ? 'PRIMARY ' : ''}#{index['columns']}(#{index['cardinality']})")
       end
 
+      if print_indices?
+        table_summary_lines << "".ljust(4) + "Indices:"
+        table_summary_lines.concat(index_summary_lines.sort)
+      end
+
       if table_summary_lines.size > 0
         puts "".ljust(2) + "== TABLE REPORT ".ljust(78, '=')
         puts "".ljust(2) + "Name: #{table_name}"
         puts "".ljust(2) + "Row count: #{record_count}, Column count: #{columns_size}"
         puts "".ljust(2) + "Index count: #{index_count}, With multiple: #{multiple_index_count}"
-        puts "".ljust(2) + "TOO MANY INDICES!" if (columns_size > MULTIPLE_INDEX_THRESHOLD_SIZE && multiple_index_count > columns_size)
+        puts "".ljust(2) + "TOO MANY INDICES!" if (columns_size > MULTIPLE_INDEX_THRESHOLD_SIZE && multiple_index_count >= columns_size)
         puts "".ljust(2) + "POSSIBLY UNUSED TABLE" unless (record_count && record_count > 0)
 
         puts table_summary_lines.join("\n")
-        if print_indices?
-          puts "".ljust(4) + "Indices:"
-          puts index_summary_lines.sort.join("\n")
-        end
       end
     end
     puts "".ljust(80,'*')
@@ -120,13 +121,17 @@ class MysqlSchemaAnalyzer
     data_type      = column['data_type']
     column_type    = column['column_type']
     column_name    = column['column_name']
-    is_int         = (column_type.index('int') != nil)
+    is_int         = (column_type.index(/\bint\b/) != nil)
     is_signed      = !column_type.index('unsigned')
 
     return column_summary_lines unless is_int
 
-    minimum_value = ActiveRecord::Base.connection.select_value("SELECT MIN(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
-    maximum_value = ActiveRecord::Base.connection.select_value("SELECT MAX(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
+    begin
+      minimum_value = ActiveRecord::Base.connection.select_value("SELECT MIN(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
+      maximum_value = ActiveRecord::Base.connection.select_value("SELECT MAX(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
+    rescue => e
+      return ["".ljust(8) + e.message]
+    end
 
     if column_type == 'tinyint(1)'
       # Boolean type
