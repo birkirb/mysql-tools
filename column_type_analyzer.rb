@@ -7,7 +7,7 @@ class MysqlSchemaAnalyzer
 
   REPORT_CHAR_USAGE_UNDER = 0.65 # Report varchars that in the maximum case uses less than this percentage of defined length
   REPORT_CHAR_AVERAGE_UNDER = 0.30 # Report varchars where the average size is less than this percentage of the defined size
-  IGNORE_INT_IDS = false # Ignore ID colums when suggesting int values
+  MULTIPLE_INDEX_THRESHOLD_SIZE = 4
 
   def initialize(tables = nil)
     env = ActiveRecord::Base.connection.instance_variable_get('@config').dup
@@ -22,11 +22,21 @@ class MysqlSchemaAnalyzer
               :bigint    => { :maxsize => 18446744073709551615, :factor => 1 }}
   end
 
+  def print_indices?
+    true
+  end
+
   def print_stats
-    title = " ANALYSING SCHEMA: #{@db.upcase} @ #{@host.upcase} "
-    puts "".ljust(5,'*') + title + "".ljust(75 - title.size,'*')
     db_tables = ActiveRecord::Base.connection.tables
     tables = (@tables & db_tables) || db_tables
+
+    if tables.blank?
+      puts "No tables to scan."
+      return
+    end
+
+    title = " ANALYSING SCHEMA: #{@db.upcase} @ #{@host.upcase} "
+    puts "".ljust(5,'*') + title + "".ljust(75 - title.size,'*')
 
     tables.each do |table_name|
       table_summary_lines = []
@@ -40,6 +50,7 @@ class MysqlSchemaAnalyzer
       SQL
 
       columns = ActiveRecord::Base.connection.select_all(sql)
+      columns_size = columns.size
 
       columns.each do |column|
         column_summary_lines = []
@@ -64,13 +75,41 @@ class MysqlSchemaAnalyzer
         end
       end
 
+      sql = <<-SQL
+        SELECT
+          table_name AS `table`,
+          index_name AS `index`,
+          cardinality,
+          GROUP_CONCAT(column_name ORDER BY seq_in_index) AS `columns`
+        FROM information_schema.`statistics`
+        WHERE `table_name` = '#{table_name}' AND `table_schema` = '#{@db}'
+        GROUP BY 1,2
+      SQL
+
+      indices = ActiveRecord::Base.connection.select_all(sql)
+      index_count = 0
+      multiple_index_count = 0
+      index_summary_lines = []
+
+      indices.each do |index|
+        index_count +=1
+        multiple_index_count += index['columns'].split(',').size
+        index_summary_lines.push("".ljust(8) + "#{index['index'] == 'PRIMARY' ? 'PRIMARY ' : ''}#{index['columns']}(#{index['cardinality']})")
+      end
+
       if table_summary_lines.size > 0
         puts "".ljust(2) + "== TABLE REPORT ".ljust(78, '=')
         puts "".ljust(2) + "Name: #{table_name}"
-        puts "".ljust(2) + "Row count: #{record_count}"
+        puts "".ljust(2) + "Row count: #{record_count}, Column count: #{columns_size}"
+        puts "".ljust(2) + "Index count: #{index_count}, With multiple: #{multiple_index_count}"
+        puts "".ljust(2) + "TOO MANY INDICES!" if (columns_size > MULTIPLE_INDEX_THRESHOLD_SIZE && multiple_index_count > columns_size)
         puts "".ljust(2) + "POSSIBLY UNUSED TABLE" unless (record_count && record_count > 0)
 
         puts table_summary_lines.join("\n")
+        if print_indices?
+          puts "".ljust(4) + "Indices:"
+          puts index_summary_lines.sort.join("\n")
+        end
       end
     end
     puts "".ljust(80,'*')
@@ -101,23 +140,21 @@ class MysqlSchemaAnalyzer
         column_summary_lines << "".ljust(8) + "POSSIBLE UNSIGNED INTEGER CANDIDATE"
       end
 
-      if !IGNORE_INT_IDS && column_name.index('id')
-        @type_keys.each do |key|
-          if ((maximum_value * @types[key][:factor]) < @types[key][:maxsize])
-            if data_type != key.to_s
-              column_summary_lines << "".ljust(8) + "POSSIBLE #{key.to_s.upcase} CANDIDATE"
+      @type_keys.each do |key|
+        if ((maximum_value * @types[key][:factor]) < @types[key][:maxsize])
+          if data_type != key.to_s
+            column_summary_lines << "".ljust(8) + "POSSIBLE #{key.to_s.upcase} CANDIDATE"
+            break
+          else
+            if maximum_value < (@types[key][:maxsize] / @types[key][:factor])
+              # Good fit
               break
-            else
-              if maximum_value < (@types[key][:maxsize] / @types[key][:factor])
-                # Good fit
-                break
-              end
             end
           end
         end
       end
 
-      if (maximum_value * 3) > @types[:int][:maxsize]
+      if column_type.index('bigint').nil? && (maximum_value * 3) > @types[:int][:maxsize]
         column_summary_lines << "".ljust(8) + "POSSIBLY UNDERSIZED INT, BIGINT CANDIDATE"
       end
     end
@@ -181,7 +218,7 @@ if __FILE__ == $0
   options = {
     :host => 'localhost',
     :database => nil,
-    :user => nil,
+    :username => nil,
     :password => nil,
   }
 
@@ -189,15 +226,15 @@ if __FILE__ == $0
     opts.banner = "Usage: rails #{__FILE__} [options]"
 
     opts.on("-h", "--host hostname", "MySQL Server Hostname") do |var|
-      options[:hostname] = var
+      options[:host] = var
     end
 
     opts.on("-d", "--database database", "Database to scan") do |var|
       options[:database] = var
     end
 
-    opts.on("-u", "--user user", "Username to connect as") do |var|
-      options[:user] = var
+    opts.on("-u", "--username username", "Username to connect as") do |var|
+      options[:username] = var
     end
 
     opts.on("-p", "--password password", "User's password") do |var|
