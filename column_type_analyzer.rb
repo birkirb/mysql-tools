@@ -125,8 +125,8 @@ class MysqlSchemaAnalyzer
 
     return column_summary_lines unless is_int
 
-    minimum_value = ActiveRecord::Base.connection.select_value("SELECT MIN(#{column_name}) AS number FROM #{@db}.#{table_name};")
-    maximum_value = ActiveRecord::Base.connection.select_value("SELECT MAX(#{column_name}) AS number FROM #{@db}.#{table_name};")
+    minimum_value = ActiveRecord::Base.connection.select_value("SELECT MIN(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
+    maximum_value = ActiveRecord::Base.connection.select_value("SELECT MAX(`#{column_name}`) AS number FROM `#{@db}`.`#{table_name}`;")
 
     if column_type == 'tinyint(1)'
       # Boolean type
@@ -178,8 +178,8 @@ class MysqlSchemaAnalyzer
     return lines unless is_varchar || is_char
 
     # TODO: Check median here instead, std dev might be userful as well
-    average_length = ActiveRecord::Base.connection.select_value("SELECT AVG(CHAR_LENGTH(`#{column_name}`)) AS number FROM #{@db}.#{table_name};").to_i
-    maximum_length = ActiveRecord::Base.connection.select_value("SELECT MAX(CHAR_LENGTH(`#{column_name}`)) AS number FROM #{@db}.#{table_name};").to_i
+    average_length = ActiveRecord::Base.connection.select_value("SELECT AVG(CHAR_LENGTH(`#{column_name}`)) AS number FROM `#{@db}`.`#{table_name}`;").to_i
+    maximum_length = ActiveRecord::Base.connection.select_value("SELECT MAX(CHAR_LENGTH(`#{column_name}`)) AS number FROM `#{@db}`.`#{table_name}`;").to_i
     line_checks = []
 
     if is_char
