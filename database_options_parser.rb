@@ -27,7 +27,7 @@ def parse_database_options(options = Hash.new)
       options[:password] = var
     end
 
-    yield(opts)
+    yield(opts, options)
 
     opts.on_tail("-h", "--help", "Show this message") do
       puts opts
@@ -45,6 +45,8 @@ def parse_database_options_with_table_list(options = Hash.new)
     opts.on("-t", "--tables table_1,table_2", Array,  "User's password") do |var|
       options[:tables] = var
     end
+
+    yield(opts, options)
   end
 
   tables = options.delete(:tables)

@@ -24,10 +24,10 @@ class TableProcessor
     @tables = (tables & db_tables) || db_tables
   end
 
-  def run
+  def run(directory)
     tables.each do |table|
       begin
-        schema = TableSchema.new(table)
+        schema = TableSchema.new(table, directory)
         schema.update
       rescue => err
         STDERR.puts "Failed on table '#{table}'  with: #{err.message}."
@@ -120,9 +120,13 @@ if __FILE__ == $0
   require 'active_record'
   load 'database_options_parser.rb'
 
-  options, tables = parse_database_options_with_table_list
+  options, tables = parse_database_options_with_table_list do |opts, options|
+    opts.on("-o", "--output output_directory", "Directory to which the schema file is saved.") do |var|
+      options[:output] = var
+    end
+  end
   fill_missing_database_parameters(options)
   establish_connection!(options)
 
-  TableProcessor.new(tables).run
+  TableProcessor.new(tables).run(options[:output])
 end
