@@ -218,58 +218,11 @@ end
 if __FILE__ == $0
   require 'active_support'
   require 'active_record'
-  require 'optparse'
+  load 'database_options_parser.rb'
 
-  options = {
-    :host => 'localhost',
-    :database => nil,
-    :username => nil,
-    :password => nil,
-  }
-
-  OptionParser.new do |opts|
-    opts.banner = "Usage: rails #{__FILE__} [options]"
-
-    opts.on("-h", "--host hostname", "MySQL Server Hostname") do |var|
-      options[:host] = var
-    end
-
-    opts.on("-d", "--database database", "Database to scan") do |var|
-      options[:database] = var
-    end
-
-    opts.on("-u", "--username username", "Username to connect as") do |var|
-      options[:username] = var
-    end
-
-    opts.on("-p", "--password password", "User's password") do |var|
-      options[:password] = var
-    end
-
-    opts.on("-t", "--tables table_1,table_2", Array,  "User's password") do |var|
-      options[:tables] = var
-    end
-
-    opts.on_tail("-h", "--help", "Show this message") do
-      puts opts
-      exit
-    end
-  end.parse!(ARGV)
-
-  tables = options.delete(:tables)
-
-  options.each do |key,value|
-    if value.nil?
-      print "#{key}: "
-      options[key] = gets.chomp!
-    end
-  end
-
-  ActiveRecord::Base.establish_connection(
-    options.merge!({
-      :adapter => "mysql2",
-    })
-  )
+  options, tables = parse_database_options_with_table_list
+  fill_missing_database_parameters(options)
+  establish_connection!(options)
 
   MysqlSchemaAnalyzer.new(tables).print_stats
 end
