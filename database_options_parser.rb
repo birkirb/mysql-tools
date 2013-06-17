@@ -42,7 +42,7 @@ end
 
 def parse_database_options_with_table_list(options = Hash.new)
   parse_database_options(options) do |opts|
-    opts.on("-t", "--tables table_1,table_2", Array,  "User's password") do |var|
+    opts.on("-t", "--tables table_1,table_2", Array,  "List of tables to scan.") do |var|
       options[:tables] = var
     end
 
@@ -68,4 +68,36 @@ def establish_connection!(options)
       :adapter => "mysql2",
     })
   )
+end
+
+class Utils
+  def self.quote_entity(entity)
+    ActiveRecord::Base.connection.quote_column_name(entity)
+  end
+
+  def self.quote_string(s)
+    ActiveRecord::Base.connection.quote_string(s)
+  end
+
+  def self.get_column_definition(table_name, column_name)
+    ActiveRecord::Base.connection.send(:column_for, table_name, column_name)
+  end
+
+  def self.get_unsigned_primary_key_type(type)
+    db_type = ActiveRecord::Base.connection.native_database_types[type.to_sym]
+    if db_type
+      "#{db_type[:name].to_s}(#{db_type[:limit]}) unsigned default NULL auto_increment"
+    else
+      raise "Uknown type: #{type.to_s}"
+    end
+  end
+
+  def self.get_signed_primary_key_type(type)
+    db_type = ActiveRecord::Base.connection.native_database_types[type.to_sym]
+    if db_type
+      "#{db_type[:name].to_s}(#{db_type[:limit]}) default NULL auto_increment"
+    else
+      raise "Uknown type: #{type.to_s}"
+    end
+  end
 end
