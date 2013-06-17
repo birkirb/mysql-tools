@@ -18,7 +18,7 @@ class IndexLengthAnalyzer
     column_length = column_size_check[0].to_i
     row_count = con.select_value("SELECT COUNT(*) FROM #{qtable} WHERE #{qcolumn} IS NOT NULL").to_i
     max_value_length = con.select_value("SELECT MAX(CHARACTER_LENGTH(#{qcolumn})) FROM #{qtable} WHERE #{qcolumn} IS NOT NULL").to_i
-    column_cardinality = select_cardinality(qtable, qcolumn, column_length, true);
+    column_cardinality = select_cardinality(qtable, qcolumn, max_value_length, true);
     puts "Calculating ideal character length for index on column #{qcolumn} in table #{qtable}. \n" +
       "Column length is #{column_length}. Maximum value length is #{max_value_length}.\n" +
       "Cut off rate set at #{cut_off_rate}%. " +
@@ -26,8 +26,8 @@ class IndexLengthAnalyzer
       "Rows with values: #{row_count}." if @verbose
     puts "="*80 if @verbose
 
-    previous_test_index_size = column_length
-    test_index_size = column_length/2
+    previous_test_index_size = max_value_length
+    test_index_size = previous_test_index_size/2
     previous_hit_rate = nil
 
     while test_index_size > 0
