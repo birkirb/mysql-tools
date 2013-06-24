@@ -29,7 +29,7 @@ def parse_database_options(options = Hash.new)
 
     yield(opts, options)
 
-    opts.on_tail("-h", "--help", "Show this message") do
+    opts.on_tail("-i", "--help", "Show this message") do
       puts opts
       exit
     end
