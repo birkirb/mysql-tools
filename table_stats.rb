@@ -107,6 +107,17 @@ class TableStats
     false
   end
 
+  def si_number(number, unit = '')
+    si_suffixes = { 1e6 => 'M', 1e3 => 'K' }
+    si_suffixes.each do |boundary, suffix|
+      if number > boundary
+        return (number.to_f/boundary).round(2) + suffix + unit
+      end
+    end
+
+    number
+  end
+
   # Returns true if and only if table is marked in @user_tables
   def is_user_related_table?(table)
     return @user_tables[table]
