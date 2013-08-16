@@ -10,10 +10,11 @@ require 'stringio'
 class TableStats
 
   # Pass a new_user_count to get a linear estimate of the DB size for that many users.
-  def initialize(print_table_summary = false, new_user_count = 0, user_tables = [], exclude_patterns = [])
+  def initialize(print_table_summary = false, new_user_count = 0, user_tables = nil, exclude_patterns = [])
     @new_user_count = new_user_count
     @print_table_summary = print_table_summary
     @tables = ActiveRecord::Base.connection.select_values("SHOW TABLES;")
+    user_tables ||= []
     @user_tables = user_tables.inject({"users" => true }) do |hash, table|
       hash[table] = true
       hash
