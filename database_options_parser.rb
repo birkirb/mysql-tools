@@ -46,7 +46,7 @@ def parse_database_options_with_table_list(options = Hash.new)
       options[:tables] = var
     end
 
-    yield(opts, options)
+    yield(opts, options) if block_given?
   end
 
   tables = options.delete(:tables)

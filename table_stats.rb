@@ -126,8 +126,11 @@ class TableStats
 end
 
 if __FILE__ == $0
-  require 'active_support'
-  require 'active_record'
+  # Set up gems listed in the Gemfile.
+  ENV['BUNDLE_GEMFILE'] ||= File.expand_path('../Gemfile', __FILE__)
+  require 'bundler'
+  require 'bundler/setup' if File.exists?(ENV['BUNDLE_GEMFILE'])
+  Bundler.require(:default)
   load 'database_options_parser.rb'
 
   options = {
