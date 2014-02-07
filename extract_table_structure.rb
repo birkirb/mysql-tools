@@ -116,6 +116,8 @@ Notes:
 end
 
 if __FILE__ == $0
+  require 'bundler'
+  require 'bundler/setup'
   require 'active_support'
   require 'active_record'
   load 'database_options_parser.rb'
