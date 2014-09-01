@@ -216,8 +216,11 @@ class MysqlSchemaAnalyzer
 end
 
 if __FILE__ == $0
+  require 'bundler'
+  require 'bundler/setup'
   require 'active_support'
   require 'active_record'
+  load 'database_options_parser.rb'
   load 'database_options_parser.rb'
 
   options, tables = parse_database_options_with_table_list
