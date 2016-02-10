@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+
+require 'docopt'
+require 'mysql_tools'
+
+doc = <<DOCOPT
+Extracts a database schema for a whole database or selected tables into easy to read 
+(and grep) text files. Will update existing files without overwriting below the Notes
+allowing for some persistent documentation.
+
+Usage:
+  #{File.basename(__FILE__)} [Connection parameters] [options]
+
+Connection parameters:
+  -h --host             Database server address.
+  -d --database         Name of database.
+  -u --username         Login user.
+  -p --password         Login password.
+
+Options:
+  -i --info                       Show this screen.
+DOCOPT
+
+begin
+  args = Docopt::docopt(doc)
+
+  if args['--version']
+    puts File.read(File.expand_path(File.join(File.dirname(__FILE__), '..', 'VERSION')))
+    exit
+  end
+
+  if args['--verbose']
+    $VERBOSE = true
+  end
+
+  if args['--debug']
+    $DEBUG = true
+  end
+
+  puts args.inspect if $DEBUG
+
+  if time = args['--merged-threshold']
+    GitTools::Branches::Cleaner.merged_threshold_in_days = time.to_i
+  end
+
+  if time = args['--unmerged-threshold']
+    GitTools::Branches::Cleaner.unmerged_threshold_in_days = time.to_i
+    args['--prompt'] = true # Force this option.
+  end
+
+  GitTools::Branches::ActionExecutor.test_mode = args['--no-execute']
+  GitTools::Branches::ActionExecutor.skip_prompted = !args['--prompt']
+
+  if args['--local']
+    if master = args['--master']
+      GitTools::Branches::Cleaner.with_local(master).run!
+    else
+      GitTools::Branches::Cleaner.with_local.run!
+    end
+  end
+
+  if args['--remote']
+    GitTools::Branches::Cleaner.with_origin.run!
+  end
+
+  TableProcessor.new(tables).run(options[:output])
+
+rescue Docopt::Exit => e
+  puts e.message
+end
