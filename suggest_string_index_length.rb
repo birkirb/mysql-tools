@@ -5,7 +5,7 @@ class IndexLengthAnalyzer
     @verbose = verbose
   end
 
-  def suggest_string_index_length(table, column, cut_off_rate = 99.9)
+  def suggest_string_index_length(table, column, cut_off_rate = 99.9, start_index_size = 0)
     fine_tuning = false
 
     qcolumn = Utils.quote_entity(column)
@@ -16,19 +16,25 @@ class IndexLengthAnalyzer
     return "Column #{qcolumn} must have a variable length." if column_size_check.nil?
 
     column_length = column_size_check[0].to_i
+    cut_off_rate = cut_off_rate.to_f
     row_count = con.select_value("SELECT COUNT(*) FROM #{qtable} WHERE #{qcolumn} IS NOT NULL").to_i
     max_value_length = con.select_value("SELECT MAX(CHARACTER_LENGTH(#{qcolumn})) FROM #{qtable} WHERE #{qcolumn} IS NOT NULL").to_i
     column_cardinality = select_cardinality(qtable, qcolumn, max_value_length, true);
+    previous_test_index_size = max_value_length
+    if start_index_size > 0
+      test_index_size = start_index_size
+    else
+      test_index_size = previous_test_index_size/2
+    end
+
     puts "Calculating ideal character length for index on column #{qcolumn} in table #{qtable}. \n" +
-      "Column length is #{column_length}. Maximum value length is #{max_value_length}.\n" +
+      "Column length is #{column_length}. " +
+      "Maximum value length is #{max_value_length}.\n" +
       "Cut off rate set at #{cut_off_rate}%. " +
+      "Start index size test is #{test_index_size}. " +
       "Column cardinality is #{column_cardinality}. " +
       "Rows with values: #{row_count}." if @verbose
     puts "="*80 if @verbose
-
-    previous_test_index_size = max_value_length
-    test_index_size = previous_test_index_size/2
-    previous_hit_rate = nil
 
     while test_index_size > 0
       cardinality = select_cardinality(qtable, qcolumn, test_index_size)
@@ -102,6 +108,10 @@ if __FILE__ == $0
       options[:rate] = var
     end
 
+    opts.on("-s", "--start-index ", "Value at which to start index size evaluation.") do |var|
+      options[:index] = var
+    end
+
     opts.on("-v", "--verbose ", "Verbose output") do |var|
       options[:verbose] = var
     end
@@ -112,6 +122,7 @@ if __FILE__ == $0
   IndexLengthAnalyzer.new(options[:verbose]).suggest_string_index_length(
     options[:table],
     options[:column],
-    options[:rate]
+    options[:rate].to_f,
+    options[:index].to_i
   )
 end
