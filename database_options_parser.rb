@@ -57,7 +57,7 @@ def fill_missing_database_parameters(options)
   options.each do |key,value|
     if value.nil?
       print "#{key}: "
-      options[key] = gets.chomp!
+      options[key] = STDIN.gets.chomp!
     end
   end
 end
